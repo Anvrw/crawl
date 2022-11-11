@@ -1543,6 +1543,10 @@ public:
                     }
                 }
 
+                else if (keyin == '='){
+                    MacroEditMenu::MappingEditMenu::delete_multiple_menu();
+                }
+
                 // intercept one key, and store it in `key`
                 key.push_back(keyin); // TODO: vs _getch_mul?
                 // switch to editing state and reinit the menu
@@ -1666,6 +1670,7 @@ public:
         case CK_MOUSE_B1:
         case CK_ENTER:
         CASE_ESCAPE
+        case '=':
         case '-': // menu item, always present
         // not generally remapping numpad, so have to manually handle these
         case CK_NUMPAD_SUBTRACT:
