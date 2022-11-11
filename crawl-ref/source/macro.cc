@@ -1079,7 +1079,7 @@ public:
                     [this](const MenuEntry &item)
                     {
                         if (item.data)
-                            edit_mapping(*static_cast<keyseq *>(item.data));
+                            edit_mapping(*static_cast<keyseq *>(item.data)); //
                         return true;
                     });
                 me->data = (void *) &mapping.first;
