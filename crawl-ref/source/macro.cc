@@ -1544,7 +1544,7 @@ public:
                 }
 
                 else if (keyin == '='){
-                    MacroEditMenu::MappingEditMenu::delete_multiple_menu();
+                    MacroEditMenu::MappingEditMenu::delete_multiple_menu(); //Will delete all macros
                 }
 
                 // intercept one key, and store it in `key`
