@@ -1048,22 +1048,32 @@ public:
         // have no idea how to use that class with a Menu
         clear();
         add_entry(new MenuEntry("Create/edit " + mode_name() + " from key", '~',
-            [this](const MenuEntry &)
-                {
-                    edit_mapping(keyseq());
-                    return true;
-                }));
+                                [this](const MenuEntry &)
+                                {
+                                    edit_mapping(keyseq());
+                                    return true;
+                                }));
         if (get_map().size())
         {
             MenuEntry *clear_entry = new MenuEntry("Clear all " + mode_name() + "s", '-',
-                [this](const MenuEntry &)
-                    {
-                        status_msg = "";
-                        update_macro_more();
-                        if (item_count() > 0)
-                            clear_all();
-                        return true;
-                    });
+                                                   [this](const MenuEntry &)
+                                                   {
+                                                       status_msg = "";
+                                                       update_macro_more();
+                                                       if (item_count() > 0)
+                                                           clear_all();
+                                                       return true;
+                                                   });
+
+            if (get_map().size() > 1)
+            {
+                MenuEntry *clear_multiple_entry = new MenuEntry("Clear selected " + mode_name() + "s", '=',
+                                                                [this](const MenuEntry &)
+                                                                {
+                                                                    delete_multiple_menu();
+                                                                    return true;
+                                                                });
+            }
             // manual numpad handling for this class
             clear_entry->add_hotkey(CK_NUMPAD_SUBTRACT);
             clear_entry->add_hotkey(CK_NUMPAD_SUBTRACT2);
@@ -1076,12 +1086,12 @@ public:
                 string action_str = vtostr(mapping.second);
                 action_str = replace_all(action_str, "<", "<<");
                 MenuEntry *me = new MenuEntry(action_str, (int) mapping.first[0],
-                    [this](const MenuEntry &item)
-                    {
-                        if (item.data)
-                            edit_mapping(*static_cast<keyseq *>(item.data));
-                        return true;
-                    });
+                                              [this](const MenuEntry &item)
+                                              {
+                                                  if (item.data)
+                                                      edit_mapping(*static_cast<keyseq *>(item.data));
+                                                  return true;
+                                              });
                 me->data = (void *) &mapping.first;
                 add_entry(me);
                 if (set_hover_keycode == mapping.first[0])
@@ -1214,6 +1224,31 @@ public:
         macro_del(mapref, key);
         crawl_state.unsaved_macros = true;
         fill_entries();
+    }
+
+    void del_mult(char buffer) {
+
+        string k;
+        stringstream ss;
+        ss << buffer;
+        ss >> k;
+
+        macromap &mapref = get_map();
+        string temp[k.size()/2];
+        keyseq keys[k.size()/2];
+        for(int i = 0; i < k.size(); i++){
+            if(k.size()/2 == 1)
+            {
+                temp[i] = k.substr(0,1);
+                i--;
+            }
+            k = k.substr(1);
+            keys[i] = parse_keyseq(temp[i]);
+        }
+
+        for (int i = 0; i < k.size(); i++) {
+            macro_del(mapref,keys[i]);
+        }
     }
 
     void clear_hovered()
@@ -1392,6 +1427,32 @@ public:
             }
             set_hovered(old_last_hovered);
             action = new_action;
+            reset_key_prompt();
+            update_menu(true);
+            return true;
+        }
+
+        bool delete_multiple_menu()
+        {
+            char buff[1024];
+            const string delete_prompt = make_stringf("<w>%s</w>\nInput %s's for deletion:",
+                                                      prompt.c_str(),
+                                                      parent.mode_name().c_str());
+
+            int old_last_hovered = last_hovered;
+            set_hovered(-1);
+            set_more("In the form of 'a b h ~'");
+            if (!title_prompt(buff, sizeof(buff), delete_prompt.c_str()))
+            {
+                set_hovered(old_last_hovered);
+                set_more("");
+                // line reader success code is 0
+                return lastch == 0;
+            }
+
+           // del_mult(buff);
+
+            set_hovered(old_last_hovered);
             reset_key_prompt();
             update_menu(true);
             return true;

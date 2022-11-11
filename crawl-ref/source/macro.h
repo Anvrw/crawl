@@ -111,6 +111,9 @@ void init_keybindings();
 command_type name_to_command(string name);
 string  command_to_name(command_type cmd);
 
+bool delete_multiple_menu();
+void fill_entries(int set_hover_keycode=0);
+
 bool keycode_is_printable(int keycode);
 string keycode_to_name(int keycode, bool shorten = true);
 string keyseq_to_str(const keyseq &seq);
