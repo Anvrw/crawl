@@ -1227,16 +1227,37 @@ public:
         fill_entries();
     }
 
-    void del_mult(char buffer) {
 
-        string k;
-        stringstream ss;
-        ss << buffer;
-        ss >> k;
+    void del_mult(string s) {
 
+
+        // maybe an add an error to retry if it is empty?
+        string k = "";
+        // this gets rid of commas
+        for (auto x : k)
+        {
+            if (x != ',') {
+                k = k + x;
+            }
+        }
+        // Deletes duplicates in the string
+        int num = k.length ();
+        for (int i = 0; i < num; i++) {
+            for (int j = i + 1; j < num; j++) {
+                if (k[i] == k[j]) {
+                    for (int l = j; l < num; l++) {
+                        k[l] = k[l + 1];
+                    }
+                    num--;
+                    j--;
+                }
+            }
+        }
+        // Calls for each key in the string to be erased
         macromap &mapref = get_map();
         string temp[k.size()/2];
         keyseq keys[k.size()/2];
+
         for(int i = 0; i < k.size(); i++){
             if(k.size()/2 == 1)
             {
@@ -1742,7 +1763,7 @@ public:
             return lastch == 0;
         }
 
-        //del_mult(buff);
+        del_mult(buff);
 
         set_hovered(old_last_hovered);
 

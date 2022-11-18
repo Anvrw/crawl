@@ -149,3 +149,17 @@ A:+
 # F1: fire at target when in targeting mode
 K2:\{368}
 A:.
+
+For spell casters:
+1.	z->Z* (Gives the list of spells)
+2.	empty key->z+any character (will autocast the spell matching the character, usually mapped to 1-4 and function keys)
+3.	empty key -> z+any+z+any (allows you to cast two spells at the same time)
+4.	you can add f to the end of the macros above above to make it attack the closest on attack spells
+5.	any key -> p (useful for gods who require you to use the ability often)
+6.	any key -> V+any (useful for artificers)
+General use:
+1.	m->~~ (instantly goes to the macros section)
+2.	empty key -> Qr (Press key to quiver item in slot 'r')
+3.	empty key -> Fr (Press key to fire a missile from slot 'r')
+4.	empty key -> PiPj (quickly switch rings or amulets from slot ‘i’ to ‘j’)
+
