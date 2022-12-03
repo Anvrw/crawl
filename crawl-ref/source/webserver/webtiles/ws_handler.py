@@ -72,7 +72,7 @@ def describe_sockets(names=False):
 
     if names:
         # this is all a bit brute-force
-        watchers = list_of_names([s for s in slist if s.watched_game and s.username])
+        watchers = list_of_names([s.username for s in slist if s.watched_game and s.username])
         if watchers:
             summary += "; Watchers: %s" % watchers
         lobby_names = list_of_names([s.username for s in lobby if s.username and not s.account_restricted()])
@@ -879,10 +879,12 @@ class CrawlWebSocket(tornado.websocket.WebSocketHandler):
         username, ok = auth.check_login_cookie(cookie)
         if ok:
             auth.forget_login_cookie(cookie)
-            self.logger.info("User %s logging in (via token).", username)
+            self.logger.info("User %s logging in from %s (via token).",
+                username, self.request.remote_ip)
             self.do_login(username)
         else:
-            self.logger.warning("Wrong login token for user %s.", username)
+            self.logger.warning("Wrong login token for user %s. (IP: %s)",
+                username, self.request.remote_ip)
             self.send_message("login_fail")
 
     def set_login_cookie(self):
@@ -971,6 +973,12 @@ class CrawlWebSocket(tornado.websocket.WebSocketHandler):
         if self.username and self.account_restricted():
             self.send_message("auth_error",
                         reason="Account restricted; spectating unavailable")
+            self.go_lobby()
+            return
+
+        if not self.username and not config.get('allow_anon_spectate'):
+            self.send_message("auth_error",
+                        reason="Anonymous spectating disabled")
             self.go_lobby()
             return
 
