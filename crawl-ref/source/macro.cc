@@ -1042,6 +1042,19 @@ public:
         set_title(new MenuEntry("", MEL_TITLE));
     }
 
+    struct keyItem {
+        string key;
+        string action;
+        macromap map;
+        int code;
+        deque<int> first;
+    };
+
+    static bool sortcol(const keyItem& a, const keyItem& b)
+    {
+        return a.key < b.key;
+    }
+
     void fill_entries(int set_hover_keycode=0)
     {
         // TODO: this seems like somehow it should involve ui::Switcher, but I
@@ -1081,21 +1094,35 @@ public:
 
             add_entry(clear_entry);
             add_entry(new MenuEntry("Current " + mode_name() + "s", MEL_SUBTITLE));
+            vector<keyItem> keys;
             for (auto &mapping : get_map())
             {
                 // TODO: indicate if macro is from rc file somehow?
                 string action_str = vtostr(mapping.second);
                 action_str = replace_all(action_str, "<", "<<");
-                MenuEntry *me = new MenuEntry(action_str, (int) mapping.first[0],
+                int keycode = (int) mapping.first[0];
+                string key = keycode_to_name(keycode, false).c_str();
+                keyItem aKey;
+                aKey.key = key;
+                aKey.action = action_str;
+                aKey.code = keycode;
+                aKey.first = mapping.first;
+                keys.push_back(aKey);
+            }
+            sort(keys.begin(), keys.end(), sortcol);
+            for (int i = 0; i < keys.size(); i++)
+            {
+                // TODO: indicate if macro is from rc file somehow?
+                MenuEntry *me = new MenuEntry(keys[i].action, (int) keys[i].first[0],
                                               [this](const MenuEntry &item)
                                               {
                                                   if (item.data)
                                                       edit_mapping(*static_cast<keyseq *>(item.data));
                                                   return true;
                                               });
-                me->data = (void *) &mapping.first;
+                me->data = (void *) &keys[i].first;
                 add_entry(me);
-                if (set_hover_keycode == mapping.first[0])
+                if (set_hover_keycode == keys[i].first[0])
                     last_hovered = item_count() - 1;
             }
         }
@@ -1230,23 +1257,21 @@ public:
 
     void del_mult(string s) {
 
-
         // maybe an add an error to retry if it is empty?
-        string k = "";
         // this gets rid of commas
-        for (auto x : k)
+        for (auto x : s)
         {
             if (x != ',') {
-                k = k + x;
+                s = s + x;
             }
         }
         // Deletes duplicates in the string
-        int num = k.length ();
+        int num = s.length ();
         for (int i = 0; i < num; i++) {
             for (int j = i + 1; j < num; j++) {
-                if (k[i] == k[j]) {
+                if (s[i] == s[j]) {
                     for (int l = j; l < num; l++) {
-                        k[l] = k[l + 1];
+                        s[l] = s[l + 1];
                     }
                     num--;
                     j--;
@@ -1255,20 +1280,20 @@ public:
         }
         // Calls for each key in the string to be erased
         macromap &mapref = get_map();
-        string temp[k.size()/2];
-        keyseq keys[k.size()/2];
+        string temp[s.size()/2];
+        keyseq keys[s.size()/2];
 
-        for(int i = 0; i < k.size(); i++){
-            if(k.size()/2 == 1)
+        for(int i = 0; i < s.size(); i++){
+            if(s.size()/2 == 1)
             {
-                temp[i] = k.substr(0,1);
+                temp[i] = s.substr(0,1);
                 i--;
             }
-            k = k.substr(1);
+            s = s.substr(1);
             keys[i] = parse_keyseq(temp[i]);
         }
 
-        for (int i = 0; i < k.size(); i++) {
+        for (int i = 0; i < s.size(); i++) {
             macro_del(mapref,keys[i]);
         }
     }
