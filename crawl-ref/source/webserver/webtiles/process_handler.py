@@ -494,6 +494,7 @@ class CrawlProcessHandlerBase(object):
 
     def stop(self):
         if self.process:
+            self.process.flush_ttyrec()
             self.process.send_signal(subprocess.signal.SIGHUP)
             t = time.time() + config.get('kill_timeout')
             self.kill_timeout = IOLoop.current().add_timeout(t, self.kill)
@@ -781,8 +782,7 @@ class CrawlProcessHandler(CrawlProcessHandlerBase):
             self.logger.info("Starting game.")
 
         try:
-            self.process = TerminalRecorder(call, self.ttyrec_filename,
-                                            self._ttyrec_id_header(),
+            self.process = TerminalRecorder(call,
                                             self.logger,
                                             config.get('recording_term_size'),
                                             env_vars = game.templated("env", username=self.username, default={}),
@@ -791,6 +791,8 @@ class CrawlProcessHandler(CrawlProcessHandlerBase):
             self.process.output_callback = self._on_process_output
             self.process.activity_callback = self.note_activity
             self.process.error_callback = self._on_process_error
+
+            self.process.start(self.ttyrec_filename, self._ttyrec_id_header())
 
             self.gen_inprogress_lock()
 
@@ -825,22 +827,24 @@ class CrawlProcessHandler(CrawlProcessHandlerBase):
     def gen_inprogress_lock(self):
         self.inprogress_lock = os.path.join(self.config_path("inprogress_path"),
                                             self.username + ":" + self.lock_basename)
-        f = open(self.inprogress_lock, "w")
-        fcntl.lockf(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        self.inprogress_lock_file = f
-        cols, lines = self.process.get_terminal_size()
-        f.write("%s\n%s\n%s\n" % (self.process.pid, lines, cols))
-        f.flush()
+        with util.SlowWarning("gen_inprogress_lock '%s'" % self.inprogress_lock):
+            f = open(self.inprogress_lock, "w")
+            fcntl.lockf(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self.inprogress_lock_file = f
+            cols, lines = self.process.get_terminal_size()
+            f.write("%s\n%s\n%s\n" % (self.process.pid, lines, cols))
+            f.flush()
 
     def remove_inprogress_lock(self):
         if self.inprogress_lock_file is None: return
-        fcntl.lockf(self.inprogress_lock_file.fileno(), fcntl.LOCK_UN)
-        self.inprogress_lock_file.close()
-        try:
-            os.remove(self.inprogress_lock)
-        except OSError:
-            # Lock already got deleted
-            pass
+        with util.SlowWarning("remove_inprogress_lock '%s'" % self.inprogress_lock):
+            fcntl.lockf(self.inprogress_lock_file.fileno(), fcntl.LOCK_UN)
+            self.inprogress_lock_file.close()
+            try:
+                os.remove(self.inprogress_lock)
+            except OSError:
+                # Lock already got deleted
+                pass
 
     def _ttyrec_id_header(self): # type: () -> bytes
         clrscr = b"\033[2J"
@@ -947,19 +951,32 @@ class CrawlProcessHandler(CrawlProcessHandlerBase):
 
     def _on_process_error(self, line): # type: (str) -> None
         morgue_url = self.game_params.templated("morgue_url", username=self.username)
+        # The msg this is parsing can be found in dbg-asrt.cc:do_crash_dump
+        # this is run line-by-line, so multi-line errors (the norm) may trigger
+        # this call more than once
         if line.startswith("ERROR"):
+            # header line, e.g. `ERROR in 'wizard.cc' at line 79: Intentional crash`
             self.exit_reason = "crash"
             if line.rfind(":") != -1:
                 self.exit_message = line[line.rfind(":") + 1:].strip()
+        elif line.find("crash report: ") >= 0:
+            self.exit_reason = "crash"
+            if morgue_url:
+                match = re.search(r"crash report: (.*)", line)
+                if match is not None and match.group(1):
+                    self.exit_dump_url = morgue_url
+                    self.exit_dump_url += os.path.splitext(os.path.basename(match.group(1)))[0]
         elif line.startswith("We crashed!"):
+            # before 0.19-a0-1226-g81ff5c4599 everything was on one line; this
+            # line prefix is still present but the match below fails.
             self.exit_reason = "crash"
             if morgue_url:
                 match = re.search(r"\(([^)]+)\)", line)
                 if match is not None:
                     self.exit_dump_url = morgue_url
                     self.exit_dump_url += os.path.splitext(os.path.basename(match.group(1)))[0]
-                    print(self.exit_dump_url)
-        elif line.startswith("Writing crash info to"): # before 0.15-b1-84-gded71f8
+        elif line.startswith("Writing crash info to"):
+            # before 0.15-b1-84-gded71f8 the message was very minimal
             self.exit_reason = "crash"
             if morgue_url:
                 url = None

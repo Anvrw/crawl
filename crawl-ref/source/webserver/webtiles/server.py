@@ -49,6 +49,28 @@ class NoCacheHandler(tornado.web.StaticFileHandler):
         self.set_header("Pragma", "no-cache")
         self.set_header("Expires", "0")
 
+
+_crawl_version = "unknown"
+
+def load_version():
+    global _crawl_version
+    try:
+        # this is the "bad" way to do this. However, the supposedly good ways
+        # to do this are all insanely complicated in ways that are irrelevant
+        # to webtiles.
+        with open(os.path.join(os.path.dirname(__file__), 'version.txt')) as f:
+            _crawl_version = f.readline().strip()
+    except:
+        _crawl_version = "unknown"
+
+
+def version():
+    return "Webtiles (%s) running with Tornado %s and Python %d.%d.%d" % (
+        _crawl_version,
+        tornado.version,
+        sys.version_info[0], sys.version_info[1], sys.version_info[2])
+
+
 def err_exit(errmsg, exc_info=False):
     if exc_info or config.get('logging_config').get('filename'):
         # don't print duplicate messages on stdout
@@ -718,8 +740,7 @@ def run():
             IOLoop.current().set_blocking_log_threshold(0.5) # type: ignore
             logging.info("Blocking call timeout: 500ms.")
         except:
-            # this is the new normal; still not sure of a way to deal with this.
-            logging.info("Webserver running without a blocking call timeout.")
+            pass
 
         if dgl_mode:
             ws_handler.status_file_timeout()
@@ -733,8 +754,8 @@ def run():
         ws_handler.do_periodic_lobby_updates()
         webtiles.config.init_config_timeouts()
 
-        logging.info("DCSS Webtiles server started with Tornado %s! (PID: %s)" %
-                                                    (tornado.version, os.getpid()))
+        logging.info("DCSS Webtiles server started! (PID: %s)" % os.getpid())
+        logging.info(version())
 
         IOLoop.current().start()
 
@@ -747,6 +768,8 @@ def run():
     finally:
         remove_pidfile()
 
+
+load_version()
 
 # TODO: it might be nice to simply make this module runnable, but that would
 # need some way of specifying the config source and `config.server_path`.
